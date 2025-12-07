@@ -1,0 +1,44 @@
+# Web API
+gradio
+
+# Configuration & Models
+pydantic==2.12.5
+pydantic-settings==2.12.0
+
+#GCP
+
+
+# HTTP clients & Frontend
+Flask==3.1.2
+
+# LangChain and related integrations
+langchain==1.1.0
+langchain-core==1.1.0
+langchain-community==0.4.1
+langchain-huggingface==1.1.0
+langchain-google-genai==3.2.0
+langchain-text-splitters==1.0.0
+langchain-tavily
+tavily-python
+
+# Langgraph / state machine
+langgraph==1.0.4
+langgraph-checkpoint==3.0.1
+
+# Embeddings / vector store / loaders
+chromadb==1.3.5
+huggingface-hub==0.36.0
+sentence-transformers==5.1.2
+pypdf
+
+#Monitoring
+prometheus-client
+prometheus-flask-exporter
+
+# Utilities
+
+structlog==25.5.0
+
+# developer
+pytest==9.0.1
+Markdown

@@ -1,0 +1,79 @@
+// This is a declarative example that:
+
+// 1. Builds the Docker image
+// 2. Pushes to GCP Artifact Registry
+// 3. Deploys to Cloud Run
+
+pipeline {
+    agent any
+
+    environment {
+        GCP_PROJECT_ID = credentials('gcp-project-id')
+        GCP_REGION = 'us-central1'
+        ARTIFACT_REPO = 'research-assistant-repo'
+        IMAGE_NAME = 'research-assistant-api'
+        GCP_SA_KEY = credentials('gcp-service-account-json') // JSON key
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Setup GCloud') {
+            steps {
+                sh '''
+                  echo "$GCP_SA_KEY" > /tmp/gcloud-key.json
+                  gcloud auth activate-service-account --key-file=/tmp/gcloud-key.json
+                  gcloud config set project $GCP_PROJECT_ID
+                  gcloud auth configure-docker $GCP_REGION-docker.pkg.dev --quiet
+                '''
+            }
+        }
+
+        stage('Build Image') {
+            steps {
+                sh '''
+                  IMAGE_URI="$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$ARTIFACT_REPO/$IMAGE_NAME:$(git rev-parse --short HEAD)"
+                  echo "IMAGE_URI=$IMAGE_URI" > image_uri.txt
+                  docker build -t "$IMAGE_URI" -f deployment/Dockerfile .
+                '''
+            }
+        }
+
+        stage('Push Image') {
+            steps {
+                sh '''
+                  IMAGE_URI=$(cat image_uri.txt | cut -d'=' -f2)
+                  docker push "$IMAGE_URI"
+                '''
+            }
+        }
+
+        stage('Deploy to Cloud Run') {
+            steps {
+                sh '''
+                  IMAGE_URI=$(cat image_uri.txt | cut -d'=' -f2)
+                  gcloud run deploy research-assistant-api \
+                    --image "$IMAGE_URI" \
+                    --platform managed \
+                    --region $GCP_REGION \
+                    --allow-unauthenticated \
+                    --set-env-vars OPENAI_API_KEY=$OPENAI_API_KEY \
+                    --set-env-vars TAVILY_API_KEY=$TAVILY_API_KEY \
+                    --set-env-vars GCP_PROJECT_ID=$GCP_PROJECT_ID \
+                    --set-env-vars GCP_REGION=$GCP_REGION \
+                    --set-env-vars GCS_BUCKET_NAME=$GCS_BUCKET_NAME
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'rm -f /tmp/gcloud-key.json || true'
+        }
+    }
+}
