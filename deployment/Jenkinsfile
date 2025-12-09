@@ -1,18 +1,24 @@
-// This is a declarative example that:
-
-// 1. Builds the Docker image
-// 2. Pushes to GCP Artifact Registry
-// 3. Deploys to Cloud Run
-
 pipeline {
     agent any
 
     environment {
+        // Jenkins credentials
         GCP_PROJECT_ID = credentials('gcp-project-id')
-        GCP_REGION = 'us-central1'
-        ARTIFACT_REPO = 'research-assistant-repo'
-        IMAGE_NAME = 'research-assistant-api'
-        GCP_SA_KEY = credentials('gcp-service-account-json') // JSON key
+        GCP_SA_KEY     = credentials('gcp-service-account-json')
+
+        // GCP deployment config
+        REGION         = 'us-central1'
+        REPO           = 'research-assistant-repo'
+        IMAGE_NAME     = 'research-assistant-agent'
+
+        // App-specific env (if you want to inject at deploy time)
+        FLASK_PORT     = '8080'
+        GRADIO_PORT    = '7860'
+        API_BASE       = 'http://localhost:8080'
+    }
+
+    options {
+        timestamps()
     }
 
     stages {
@@ -22,31 +28,38 @@ pipeline {
             }
         }
 
-        stage('Setup GCloud') {
+        stage('Setup gcloud') {
             steps {
                 sh '''
                   echo "$GCP_SA_KEY" > /tmp/gcloud-key.json
+
                   gcloud auth activate-service-account --key-file=/tmp/gcloud-key.json
                   gcloud config set project $GCP_PROJECT_ID
-                  gcloud auth configure-docker $GCP_REGION-docker.pkg.dev --quiet
+                  gcloud config set compute/region $REGION
+
+                  gcloud auth configure-docker $REGION-docker.pkg.dev --quiet
                 '''
             }
         }
 
-        stage('Build Image') {
+        stage('Build Docker Image') {
             steps {
+                script {
+                    // Use short git commit hash as tag
+                    def GIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    env.IMAGE_URI = "${REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${REPO}/${IMAGE_NAME}:${GIT_SHORT}"
+                }
                 sh '''
-                  IMAGE_URI="$GCP_REGION-docker.pkg.dev/$GCP_PROJECT_ID/$ARTIFACT_REPO/$IMAGE_NAME:$(git rev-parse --short HEAD)"
-                  echo "IMAGE_URI=$IMAGE_URI" > image_uri.txt
-                  docker build -t "$IMAGE_URI" -f deployment/Dockerfile .
+                  echo "Building image: $IMAGE_URI"
+                  docker build -t "$IMAGE_URI" .
                 '''
             }
         }
 
-        stage('Push Image') {
+        stage('Push Image to Artifact Registry') {
             steps {
                 sh '''
-                  IMAGE_URI=$(cat image_uri.txt | cut -d'=' -f2)
+                  echo "Pushing image: $IMAGE_URI"
                   docker push "$IMAGE_URI"
                 '''
             }
@@ -55,17 +68,15 @@ pipeline {
         stage('Deploy to Cloud Run') {
             steps {
                 sh '''
-                  IMAGE_URI=$(cat image_uri.txt | cut -d'=' -f2)
-                  gcloud run deploy research-assistant-api \
+                  echo "Deploying to Cloud Run: $IMAGE_URI"
+
+                  gcloud run deploy research-assistant-service \
                     --image "$IMAGE_URI" \
                     --platform managed \
-                    --region $GCP_REGION \
+                    --region "$REGION" \
                     --allow-unauthenticated \
-                    --set-env-vars OPENAI_API_KEY=$OPENAI_API_KEY \
-                    --set-env-vars TAVILY_API_KEY=$TAVILY_API_KEY \
-                    --set-env-vars GCP_PROJECT_ID=$GCP_PROJECT_ID \
-                    --set-env-vars GCP_REGION=$GCP_REGION \
-                    --set-env-vars GCS_BUCKET_NAME=$GCS_BUCKET_NAME
+                    --port 7860 \
+                    --set-env-vars FLASK_PORT=$FLASK_PORT,GRADIO_PORT=$GRADIO_PORT,API_BASE=$API_BASE
                 '''
             }
         }
@@ -74,6 +85,12 @@ pipeline {
     post {
         always {
             sh 'rm -f /tmp/gcloud-key.json || true'
+        }
+        success {
+            echo "Deployment completed successfully."
+        }
+        failure {
+            echo "Deployment failed."
         }
     }
 }

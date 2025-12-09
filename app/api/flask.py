@@ -9,7 +9,9 @@ from typing import Callable, Type, Tuple
 
 from flask import Flask, request, jsonify
 from pydantic import BaseModel, ValidationError
+
 from prometheus_flask_exporter import PrometheusMetrics
+from prometheus_client import Counter,Histogram
 
 from app.config import settings
 from app.models import ResearchRequest, DraftReport, ReportFeedback, FinalReport
@@ -18,12 +20,27 @@ from app.tools.doc_store import sync_local_docs
 import os
 
 app = Flask(__name__)
-metrics = PrometheusMetrics(app, path="/metrics")
+metrics = PrometheusMetrics(app, path="/metrics",group_by="endpoint")
 
 DOCUMENT_FOLDER = "data/documents" 
 
 # Basic custom metrics (extra if needed)
 metrics.info("app_info", "Research Assistant", version="1.0.0")
+
+REQUEST_DRAFT_COUNTER = Counter(
+    "research_draft_requests_total",
+    "Number of draft generation requests"
+)
+
+REQUEST_FINALIZE_COUNTER = Counter(
+    "research_finalize_requests_total",
+    "Number of finalize requests"
+)
+
+LLM_LATENCY_HISTOGRAM = Histogram(
+    "llm_finalize_latency_seconds",
+    "Time spent in LLM finalize step"
+)
 
 def initialize_document_index():
 
@@ -65,6 +82,7 @@ def health_check():
 
 @app.route("/api/research/draft", methods=["POST"])
 def create_draft():
+    REQUEST_DRAFT_COUNTER.inc()
     req_obj, _ = validate_body(ResearchRequest)
     state = run_research(req_obj)
     draft_id = str(uuid4())
@@ -80,76 +98,79 @@ def create_draft():
     return jsonify(draft.model_dump(mode="json")), 200
 
 
-@app.route("/api/research/finalize", methods=["POST"])
-def finalize_report():
-    feedback_obj, _ = validate_body(ReportFeedback)
-
-    # Treat edited_markdown as the current draft (may or may not be manually edited)
-    draft_text = feedback_obj.edited_markdown
-    comments = feedback_obj.comments or ""
-    score = feedback_obj.usefulness_score
-
-    # Use the LLM to revise the draft based on human feedback
-    system_prompt = (
-        "You are a senior market research analyst. "
-        "You will revise the draft report to incorporate human feedback, "
-        "while keeping structure clear, factual, and well formatted in Markdown."
-    )
-
-    user_prompt = f"""
-    Here is the current draft report (Markdown):
-
-    ---
-    {draft_text}
-    ---
-
-    Human feedback / requested changes:
-    {comments}
-
-    Usefulness score given by the human (1–5): {score}
-
-    Task:
-    - Improve and rewrite the report to address the feedback.
-    - Preserve useful content, but reorganize / expand / fix it as needed.
-    - Keep the output as a single, clean Markdown document.
-    - Do NOT include any meta-discussion about the fact this is a revision.
-    """
-
-    completion = llm.invoke(
-        [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
-    )
-    revised_markdown = completion.content
-
-    final = FinalReport(
-        id=feedback_obj.draft_id,
-        query="(see draft metadata in your DB)",
-        final_markdown=revised_markdown,
-        citations=[],  # you can reattach citations from stored draft if you persist them
-    )
-
-    return jsonify(final.model_dump(mode="json")), 200
-
-
-
 # @app.route("/api/research/finalize", methods=["POST"])
 # def finalize_report():
+#     REQUEST_FINALIZE_COUNTER.inc()
+
 #     feedback_obj, _ = validate_body(ReportFeedback)
 
-#     # In a real system, you’d reload DraftReport by id.
-#     # Here we trust the edited_markdown from Gradio as the final content.
-#     final_id = feedback_obj.draft_id
+#     # Treat edited_markdown as the current draft (may or may not be manually edited)
+#     draft_text = feedback_obj.edited_markdown
+#     comments = feedback_obj.comments or ""
+#     score = feedback_obj.usefulness_score
+
+#     # Use the LLM to revise the draft based on human feedback
+#     system_prompt = (
+#         "You are a senior market research analyst. "
+#         "You will revise the draft report to incorporate human feedback, "
+#         "while keeping structure clear, factual, and well formatted in Markdown."
+#     )
+
+#     user_prompt = f"""
+#     Here is the current draft report (Markdown):
+
+#     ---
+#     {draft_text}
+#     ---
+
+#     Human feedback / requested changes:
+#     {comments}
+
+#     Usefulness score given by the human (1–5): {score}
+
+#     Task:
+#     - Improve and rewrite the report to address the feedback.
+#     - Preserve useful content, but reorganize / expand / fix it as needed.
+#     - Keep the output as a single, clean Markdown document.
+#     - Do NOT include any meta-discussion about the fact this is a revision.
+#     """
+#     with LLM_LATENCY_HISTOGRAM.time():
+#         completion = llm.invoke(
+#             [
+#                 {"role": "system", "content": system_prompt},
+#                 {"role": "user", "content": user_prompt},
+#             ]
+#         )
+#     revised_markdown = completion.content
 
 #     final = FinalReport(
-#         id=final_id,
-#         query="(see draft metadata in your DB)",  # placeholder
-#         final_markdown=feedback_obj.edited_markdown,
-#         citations=[],  # could re-attach from stored draft
+#         id=feedback_obj.draft_id,
+#         query="(see draft metadata in your DB)",
+#         final_markdown=revised_markdown,
+#         citations=[],  # you can reattach citations from stored draft if you persist them
 #     )
-#     # Persist final report, feedback metrics, etc.
-#     return jsonify(final.model_dump()), 200
+
+#     return jsonify(final.model_dump(mode="json")), 200
+
+
+
+@app.route("/api/research/finalize", methods=["POST"])
+def finalize_report():
+    REQUEST_FINALIZE_COUNTER.inc()
+    feedback_obj, _ = validate_body(ReportFeedback)
+
+    # In a real system, you’d reload DraftReport by id.
+    # Here we trust the edited_markdown from Gradio as the final content.
+    final_id = feedback_obj.draft_id
+
+    final = FinalReport(
+        id=final_id,
+        query="(see draft metadata in your DB)",  # placeholder
+        final_markdown=feedback_obj.edited_markdown,
+        citations=[],  # could re-attach from stored draft
+    )
+    # Persist final report, feedback metrics, etc.
+    return jsonify(final.model_dump()), 200
 
 
 def create_app() -> Flask:

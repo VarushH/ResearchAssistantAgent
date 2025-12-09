@@ -32,8 +32,8 @@ sentence-transformers==5.1.2
 pypdf
 
 #Monitoring
-prometheus-client
-prometheus-flask-exporter
+prometheus-client==0.23.1
+prometheus-flask-exporter==0.23.2
 
 # Utilities
 
