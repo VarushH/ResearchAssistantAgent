@@ -118,10 +118,10 @@
 import requests
 import gradio as gr
 from pydantic import ValidationError
-
+from app.config import settings
 from app.models import ResearchRequest, ReportFeedback
 
-API_BASE = "http://localhost:8080"  # For local dev; override via env in Cloud Run
+API_BASE = settings.api_base 
 
 
 def call_create_draft(query, industry, competitors_csv):
@@ -229,4 +229,4 @@ def build_interface():
 
 if __name__ == "__main__":
     demo = build_interface()
-    demo.launch(server_name="0.0.0.0", server_port=7860)
+    demo.launch(server_name=settings.gradio_host, server_port=settings.gradio_port)

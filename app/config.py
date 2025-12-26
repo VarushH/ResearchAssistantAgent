@@ -22,7 +22,13 @@ class Settings(BaseSettings):
     # Flask
     flask_debug: bool = Field(default=False)
     flask_host: str = Field(default="0.0.0.0")
-    flask_port: int = Field(default=8080)
+    flask_port: int = Field(default=5000)
+    api_base:str = Field(alias="API_BASE")
+
+    # Gradio
+    gradio_host: str = Field(default="0.0.0.0")
+    gradio_port: int = Field(default=8080)
+    
 
     # Misc
     environment: str = Field(default="dev")

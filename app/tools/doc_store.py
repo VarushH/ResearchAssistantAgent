@@ -14,9 +14,15 @@ from app.models import DocumentChunk
 # Initialize Chroma persistent client
 _chroma_client = chromadb.PersistentClient(path=settings.chroma_persist_dir)
 
+# _embedding_function = SentenceTransformerEmbeddingFunction(
+#     model_name="sentence-transformers/all-MiniLM-L6-v2"
+# )
+
 _embedding_function = SentenceTransformerEmbeddingFunction(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
+    model_name="sentence-transformers/all-MiniLM-L6-v2",
+    device="cpu"
 )
+
 _collection = _chroma_client.get_or_create_collection(
     name="research_docs",
     embedding_function=_embedding_function,
