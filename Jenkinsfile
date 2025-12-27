@@ -69,12 +69,7 @@
 
 
 pipeline {
-    agent {
-        docker {
-            image 'google/cloud-sdk:latest'
-            args '--privileged -v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    agent any
 
     environment {
         PROJECT_ID   = 'glassy-land-482114-j4'
