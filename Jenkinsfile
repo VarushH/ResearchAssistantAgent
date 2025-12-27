@@ -12,12 +12,22 @@ pipeline {
     }
 
     stages {
+        // stage('Authenticate GCP') {
+        //     steps {
+        //         withCredentials([file(credentialsId: 'gcp-deploy-key', variable: 'GCP_KEY')]) {
+        //             // Log in to GCP using the service account key
+        //             bat "gcloud auth activate-service-account --key-file=%GCP_KEY%"
+        //             bat "gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet"
+        //         }
+        //     }
+        // }
+
         stage('Authenticate GCP') {
             steps {
                 withCredentials([file(credentialsId: 'gcp-deploy-key', variable: 'GCP_KEY')]) {
-                    // Log in to GCP using the service account key
-                    bat "gcloud auth activate-service-account --key-file=%GCP_KEY%"
-                    bat "gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet"
+                    // Using "call" or full path ensures Windows finds the .cmd file
+                    bat "call gcloud auth activate-service-account --key-file=\"%GCP_KEY%\""
+                    bat "call gcloud auth configure-docker us-central1-docker.pkg.dev --quiet"
                 }
             }
         }
