@@ -12,9 +12,9 @@ class Settings(BaseSettings):
     tavily_api_key: str = Field(..., alias="TAVILY_API_KEY")
 
     # GCP
-    gcp_project_id: str = Field(..., alias="GCP_PROJECT_ID")
-    gcp_region: str = Field(..., alias="GCP_REGION")
-    gcs_bucket_name: str = Field(..., alias="GCS_BUCKET_NAME")
+    # gcp_project_id: str = Field(..., alias="GCP_PROJECT_ID")
+    # gcp_region: str = Field(..., alias="GCP_REGION")
+    # gcs_bucket_name: str = Field(..., alias="GCS_BUCKET_NAME")
 
     # Chroma
     chroma_persist_dir: str = Field(alias="CHROMA_PERSIST_DIR")

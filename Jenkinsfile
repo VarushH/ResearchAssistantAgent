@@ -83,6 +83,11 @@ pipeline {
         IMAGE_NAME   = 'research-assistant-agent'
         SERVICE_NAME = 'research-assistant-service'
         IMAGE_TAG    = "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${IMAGE_NAME}:${BUILD_NUMBER}"
+        GEMINI_API_KEY = "AIzaSyC0PI-x9vrZ2ngpA8uDKgJj-3zqihGdjo4"
+        TAVILY_API_KEY = "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"
+        GEMINI_MODEL_NAME = "gemini-3-pro-preview"
+        CHROMA_PERSIST_DIR="./chroma_db"
+        API_BASE = "http://localhost:5000"
     }
 
     stages {
@@ -122,9 +127,10 @@ pipeline {
                       --image $IMAGE_TAG \
                       --platform managed \
                       --region $REGION \
+                      --set-env-vars "GEMINI_API_KEY = $GEMINI_API_KEY,TAVILY_API_KEY=$TAVILY_API_KEY,GEMINI_MODEL_NAME=$GEMINI_MODEL_NAME,CHROMA_PERSIST_DIR=$CHROMA_PERSIST_DIR,API_BASE=$API_BASE" \
                       --allow-unauthenticated \
                       --port 8080 \
-                      --memory 2Gi
+                      --memory 4Gi
                 '''
             }
         }
