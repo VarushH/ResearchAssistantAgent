@@ -27,10 +27,10 @@ _chroma_client = chromadb.PersistentClient(path=settings.chroma_persist_dir)
 model_path = "./model_cache"
 
 if os.path.exists(model_path):
-    _embedding_function = SentenceTransformer(model_path)
+    _embedding_function = SentenceTransformerEmbeddingFunction(model_name=model_path)
 else:
     # Fallback for local development if not in Docker
-    _embedding_function = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+    _embedding_function = SentenceTransformerEmbeddingFunction(model_name='sentence-transformers/all-MiniLM-L6-v2')
 
 
 _collection = _chroma_client.get_or_create_collection(
