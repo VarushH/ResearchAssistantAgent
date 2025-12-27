@@ -123,6 +123,7 @@ pipeline {
                       --platform managed \
                       --region $REGION \
                       --set-env-vars "GEMINI_API_KEY = $GEMINI_API_KEY,TAVILY_API_KEY=$TAVILY_API_KEY,GEMINI_MODEL_NAME=$GEMINI_MODEL_NAME,CHROMA_PERSIST_DIR=$CHROMA_PERSIST_DIR,API_BASE=$API_BASE" \
+                      --no-invoker-iam-check \
                       --allow-unauthenticated \
                       --port 8080 \
                       --memory 4Gi

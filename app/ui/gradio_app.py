@@ -171,7 +171,7 @@ def call_finalize(draft_id, edited_markdown, score, comments):
 
 def build_interface():
     with gr.Blocks(title="Market Research Assistant") as demo:
-        gr.Markdown("# Market & Competitive Research Assistant")
+        gr.Markdown("# Market & Competitive Research Assistant:")
 
         with gr.Row():
             query = gr.Textbox(label="Research Query", lines=2)
